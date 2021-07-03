@@ -1,6 +1,6 @@
 ---
-title: "Title"
-author: "Author"
+title: "General Sport Report"
+author: "David Ignacio"
 date: "01/07/2021"
 output:
   rmdformats::robobook:  #downcute#readthedown 
