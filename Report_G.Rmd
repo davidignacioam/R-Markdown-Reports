@@ -1,0 +1,2292 @@
+---
+title: "Title"
+author: "Author"
+date: "01/07/2021"
+output:
+  rmdformats::robobook:  #downcute#readthedown 
+    self_contained: true
+    toc_depth: 3
+    highlight: tango
+    code_folding: hide
+    embed_fonts: TRUE
+---
+
+```{=html}
+<style type="text/css">
+
+h1 {
+  font-family: times, serif;
+  font-size: 38px;
+  # color: DarkRed;
+  text-align: center;
+}
+
+h2,h3,h4 {
+  font-family: times, serif;
+  text-align: left;
+}
+
+body,p {
+  font-family: times, serif;
+  font-size: 19px;
+  text-align: left
+}
+
+box {
+    padding: 0px;
+    border-radius: 0px;
+    border-radius: 0px;
+  }
+
+</style>
+```
+
+<br>
+
+```{r setup, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE, results="hide"}
+## Libraries
+# Time
+library(lubridate)
+# Cluster
+library(factoextra)
+# Statistics
+library(EnvStats) # For cv()
+library(stats) # For describe()
+# Visualization
+library(ggplot2) # General Graphics
+library(plotly) # For interactive interfaces
+library(DT) # For datatable()
+# Data Manipulation
+library(janitor) # For rownames_to_column()
+library(tidyr) # For drop NA & Spread
+library(dplyr) # For select, arrange, filter and many others
+# Others
+library(knitr) # For pretty table interfaces
+library(kableExtra) # For scroll_boxs
+library(xlsx) # For write.xlsx()
+library(emojifont)
+load.fontawesome()
+
+## Imporing R Data
+df_CED <- readRDS("Data/R/df_CED.rds") %>% 
+  filter(
+    !ID_EventoClínico %in% c("47","52","69","72","73"),
+    !ID_Diagnóstico %in% c("53","65","88","89","90")
+    )
+df_KT <- readRDS("Data/R/df_KT.rds")
+df_KA <- readRDS("Data/R/df_KA.rds")
+df_PD <- readRDS("Data/R/df_PD.rds")
+df_PD_F<- readRDS("Data/R/df_PD_F.rds")
+df_TL <- readRDS("Data/R/df_TL.rds")
+df_MED <- readRDS("Data/R/df_MED.rds")
+df_AC <- readRDS("Data/R/df_AC.rds")
+
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, results="hide"}
+
+# Value Box General
+createValueBoxes_G <- function(df, h = 4, w = 6, padding=0.5, rows = 2){
+  # verify our inputs
+  if (!is.data.frame(df)) {
+    stop(paste("Argument", deparse(substitute(df)), "must be a data.frame."))
+  }
+  if(!all(i <- rlang::has_name(df,c("values", "infos", "icons")))){
+    stop(sprintf(
+      "%s does not contain: %s",
+      deparse(substitute(df)),
+      paste(columns[!i], collapse=", ")))
+  }
+  boxes = nrow(df) # number of items passed
+  # calculate the grid
+  cols = boxes/rows
+  plotdf <- data.frame(
+    x = rep(seq(0, (w+padding)*cols-1, w+padding), times=rows),
+    y = rep(seq(0, (h+padding)*rows-1, h+padding), each=cols),
+    h = rep(h, boxes),
+    w = rep(w, boxes),
+    value = df$values,
+    info = df$infos,
+    icon = fontawesome(df$icons),
+    font_family = c(rep("fontawesome-webfont", boxes)),
+    color = "#1D79C4D6"
+  )
+  print(plotdf)
+  ggplot(plotdf, aes(x, y, height = h, width = w, label = info)) +
+    ## Create the tiles using the `color` column
+    geom_tile(aes(fill = color)) +
+    ## Add the numeric values as text in `value` column
+    geom_text(color = "white", fontface = "bold", size = 10,
+              aes(label = value, x = x - w/2.2, y = y + h/4), hjust = 0) +
+    ## Add the labels for each box stored in the `info` column
+    geom_text(color = "white", fontface = "bold",
+              aes(label = info, x = x - w/2.2, y = y-h/4), hjust = 0) +
+    coord_fixed() +
+    scale_fill_manual(values=c("#1D79C4D6")) +
+    ## Use `geom_text()` to add the icons by specifying the unicode symbol.
+    geom_text(size = 20, aes(label = icon, family = font_family,
+                             x = x + w/4, y = y + h/8), alpha = 0.25) +
+    theme_void() +
+    guides(fill = FALSE)
+} 
+
+# Value Box PCR
+createValueBoxes_PCR <- function(df, h = 4, w = 6, padding=0.5, rows = 2){
+  # verify our inputs
+  if (!is.data.frame(df)) {
+    stop(paste("Argument", deparse(substitute(df)), "must be a data.frame."))
+  }
+  if(!all(i <- rlang::has_name(df,c("values", "infos", "icons")))){
+    stop(sprintf(
+      "%s does not contain: %s",
+      deparse(substitute(df)),
+      paste(columns[!i], collapse=", ")))
+  }
+  boxes = nrow(df) # number of items passed
+  # calculate the grid
+  cols = boxes/rows
+  plotdf <- data.frame(
+    x = rep(seq(0, (w+padding)*cols-1, w+padding), times=rows),
+    y = rep(seq(0, (h+padding)*rows-1, h+padding), each=cols),
+    h = rep(h, boxes),
+    w = rep(w, boxes),
+    value = df$values,
+    info = df$infos,
+    icon = fontawesome(df$icons),
+    font_family = c(rep("fontawesome-webfont", boxes)),
+    color = c("#2FC91ED6","#C71E1ED6")
+  )
+  print(plotdf)
+  ggplot(plotdf, aes(x, y, height = h, width = w, label = info)) +
+    ## Create the tiles using the `color` column
+    geom_tile(aes(fill = color)) +
+    ## Add the numeric values as text in `value` column
+    geom_text(color = "white", fontface = "bold", size = 10,
+              aes(label = value, x = x - w/2.2, y = y + h/4), hjust = 0) +
+    ## Add the labels for each box stored in the `info` column
+    geom_text(color = "white", fontface = "bold",
+              aes(label = info, x = x - w/2.2, y = y-h/4), hjust = 0) +
+    coord_fixed() +
+    scale_fill_manual(values=c("#2FC91ED6","#C71E1ED6")) +
+    ## Use `geom_text()` to add the icons by specifying the unicode symbol.
+    geom_text(size = 20, aes(label = icon, family = font_family,
+                             x = x + w/4, y = y + h/8), alpha = 0.25) +
+    theme_void() +
+    guides(fill = FALSE)
+} 
+
+# groupBarPlot
+groupBarPlot <- function(df) {
+  ggplotly(
+    ggplot(df, aes(x=Complemento_II, y=Cantidad, fill=Complemento_II)) +
+      geom_bar(
+        stat="identity", 
+        alpha=.7, color="black",
+        width=.7, size=.3
+      ) +
+      scale_y_continuous(
+        limits = c(0, ifelse(max(df$Cantidad) == 0,3,max(df$Cantidad))),
+        breaks = seq(1,ifelse(max(df$Cantidad) == 0,3,max(df$Cantidad)),
+                     ifelse(max(df$Cantidad)>4,2,1))
+      ) +
+      labs(x=NULL, y=NULL, fill=NULL) +
+      #scale_fill_brewer(palette = "Set1") +
+      scale_fill_brewer(palette = "Paired") +
+      theme(axis.text.x=element_text(angle=45, hjust=1, 
+                                     color=ifelse(sum(df$Cantidad) == 0,"white","black")),
+            panel.grid.major.x = element_blank(),
+            panel.grid.major=element_line(colour="#00000018"),
+            panel.grid.minor=element_line(colour="#00000018"),
+            panel.background=element_rect(fill="transparent",colour=NA)),
+    tooltip = c("x","y")
+  ) %>% 
+    add_annotations(
+      x=max(as.numeric(df$Complemento_II))*.5,
+      y=1.5,
+      text= ifelse(sum(df$Cantidad) == 0,"<b>No hay Registros Disponibles</b>",""),
+      showarrow=FALSE
+    ) 
+
+}
+
+```
+
+## Evento Clínico
+
+### Resumen
+
+Las siguientes Tarjetas presentan la *Cantidad Total* de **Molestias**, **Lesiones** y **Enfermedades**, así como también la Cantidad Total de **PCR** *Negativos* y *Positivos*.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE,  results="hide", fig.width=7.4, fig.height=1.4}
+# Value 1
+value_1 <- 
+  df_CED %>% 
+  select(ID_Diagnóstico,Categoría_I) %>%
+  distinct() %>%
+  select(!ID_Diagnóstico) %>%
+  select(Categoría_I) %>%
+  filter(Categoría_I %in% "Molestia") %>% 
+  table() %>% 
+  as.data.frame() %>% 
+  select(Freq) %>% 
+  sum()
+# Value 2
+value_2 <- 
+  df_CED %>% 
+  select(ID_Diagnóstico,Categoría_I) %>%
+  distinct() %>%
+  select(!ID_Diagnóstico) %>%
+  filter(Categoría_I %in% "Lesión") %>% 
+  table() %>% 
+  as.data.frame() %>% 
+  select(Freq) %>% 
+  sum()
+# Value 3
+value_3 <- 
+  df_CED %>% 
+  select(ID_Diagnóstico,Categoría_I) %>%
+  distinct() %>%
+  select(!ID_Diagnóstico) %>%
+  filter(Categoría_I %in% "Enfermedad") %>% 
+  table() %>% 
+  as.data.frame() %>% 
+  select(Freq) %>% 
+  sum()
+# Value 4
+value_4 <- 
+  df_CED %>% 
+  select(ID_Diagnóstico,Categoría_I) %>%
+  distinct() %>%
+  select(!ID_Diagnóstico) %>%
+  filter(Categoría_I %in% "Cirugía") %>% 
+  table() %>% 
+  as.data.frame() %>% 
+  select(Freq) %>% 
+  sum()
+# Defining the DF
+df <- 
+  data.frame(
+    values = c(value_1, value_2, value_3, value_4), 
+    infos = c("Molestias", "Lesiones", "Enfermedades","Cirugías"), 
+    icons = c("fa-medkit", "fa-medkit", "fa-medkit","fa-medkit")
+    )
+# Visualization
+createValueBoxes_G(df, rows = 1)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE,  results="hide", fig.width=7.4, fig.height=1.2}
+# Value 1
+value_1 <- 
+  df_PD_F%>% 
+  filter(Medición %in% "PCR",
+         ValorMedición %in% "Negativo") %>%
+  nrow()
+# Value 2
+value_2 <- 
+    df_PD_F%>% 
+  filter(Medición %in% "PCR",
+         ValorMedición %in% "Positivo") %>%
+  nrow()
+
+# Defining the DF
+df <- 
+  data.frame(
+    values=c(value_1,value_2), 
+    infos=c("PCR Negativos", "PCR Positivos"), 
+    icons=c("fa-heart", "fa-stethoscope")
+    )
+# Visualization
+createValueBoxes_PCR(df, rows=1)
+```
+
+### Frecuencia Temporal
+
+La siguiente Gráfica de Líneas y Puntos muestra la Cantidad de Eventos Clínicos ingresados según Fecha y de acuerdo al tipo de Categoría I (Enfermedad, Lesión y Molestia). Las líneas Rojas Verticales entrecortadas indican los días en los cuales el Plantel jugó Partido.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=7.4, fig.height=2.8}
+# Defining DF
+df_CE_T <- 
+  df_CED %>% 
+  select(
+    ID_EventoClínico,
+    Fecha = FechaEvento, 
+    Categoría = Categoría_I
+    ) %>% 
+  distinct() %>%
+  select(!ID_EventoClínico) %>%
+  drop_na() %>% 
+  table() %>% 
+  as.data.frame() %>% 
+  rename(Cantidad = Freq) %>%
+  mutate(Fecha = Fecha %>% as.Date(),
+         Cantidad = Cantidad %>% as.numeric())
+## Join & Final Data Frame
+df_CE_T <- 
+  full_join(
+    rbind(
+      data.frame(
+        Fecha = seq.Date(
+          from = min(df_CE_T$Fecha),
+          to = max(df_CE_T$Fecha),
+          by = "day"
+        ),
+        Categoría = "Enfermedad",
+        Cantidad = 0
+      ),
+      data.frame(
+        Fecha = seq.Date(
+          from = min(df_CE_T$Fecha),
+          to = max(df_CE_T$Fecha),
+          by = "day"
+        ),
+        Categoría = "Lesión",
+        Cantidad = 0     
+      ),
+      data.frame(
+        Fecha = seq.Date(
+          from = min(df_CE_T$Fecha),
+          to = max(df_CE_T$Fecha),
+          by = "day"
+        ),
+        Categoría = "Molestia",
+        Cantidad = 0
+      )
+    ),
+    df_CE_T
+  ) %>%
+  mutate(Fecha = Fecha %>% as.Date(),
+         Cantidad = Cantidad %>% as.numeric()) %>%
+  group_by(Fecha, Categoría) %>%
+  summarise(Cantidad = sum(Cantidad)) %>%
+  as.data.frame()
+# NA Loop
+df_CE_T$Cantidad <- 
+  df_CE_T$Cantidad %>% 
+  replace_na("0") %>% 
+  as.numeric()
+matchs <- 
+  df_PD %>% 
+  filter(TipoMedición %in% "Partido") %>%
+  select(FechaDimensión) %>%
+  unique() %>%
+  drop_na()
+# Visualization
+ggplotly(
+  ggplot(df_CE_T, aes(x=Fecha, y=Cantidad)) +
+    # Vertical Lines
+    geom_vline(xintercept=as.numeric(as.Date(
+      matchs$FechaDimensión
+    )), 
+    linetype="dashed", color="#E31414", size=.5, alpha=.5) +
+    # Variables
+    geom_line(aes(colour=Categoría), alpha=0.5, size=.8) +
+    scale_colour_manual(values=c('Enfermedad'="#10B534",
+                                 'Lesión'="#1348C2",
+                                 'Molestia'="#C916C0")) +
+    geom_point(aes(colour=Categoría), alpha=1, size=1.4) +
+    # Graph & Axis
+    scale_y_continuous(
+      limits = c(0, ifelse(max(df_CE_T$Cantidad) > 15, 
+                           sum(max(df_CE_T$Cantidad),2), 
+                           sum(max(df_CE_T$Cantidad),1))),
+      breaks = seq(0, ifelse(max(df_CE_T$Cantidad) > 15, 
+                             sum(max(df_CE_T$Cantidad),2), 
+                             sum(max(df_CE_T$Cantidad),1)),
+                   ifelse(max(df_CE_T$Cantidad) > 28, 3,
+                          ifelse(max(df_CE_T$Cantidad) > 15, 2, 1)))
+    ) +
+    scale_x_date(
+      date_labels="%b-%d", 
+      date_breaks= ifelse(difftime(max(df_CE_T$Fecha), min(df_CE_T$Fecha), units = "days") %>% 
+                            as.numeric() > 150, 
+                          "month",
+                          ifelse(difftime(max(df_CE_T$Fecha), min(df_CE_T$Fecha), units = "days") %>% 
+                                   as.numeric() > 25, 
+                                 "week", "day"))
+    ) +
+    labs(y=NULL, x=NULL, colour=NULL) +
+    theme(
+      axis.text.x = element_text(
+      angle = ifelse(difftime(max(df_CE_T$Fecha), min(df_CE_T$Fecha), units = "days") %>% as.numeric() > 25, 0, 45)
+      ),
+      panel.grid.major=element_line(colour="#00000018"),
+      panel.grid.minor=element_line(colour="#00000018"),
+      panel.background=element_rect(fill="transparent",colour=NA)
+      )
+) %>% 
+  layout(
+    legend = list(orientation = 'h'),
+    hovermode = "x unified", # = "x unified"
+    hoverlabel = list(bordercolor = 'black')
+  ) %>% 
+  config( 
+    displaylogo = FALSE,
+    modeBarButtonsToRemove = c("select2d", "zoomIn2d", 
+                               "zoomOut2d", "lasso2d", 
+                               "toggleSpikelines")
+  ) %>% toWebGL() 
+
+```
+
+A su vez, esta Tabla presenta nuevamente la Cantidad de Eventos Clínicos ingresados según Fecha y de acuerdo al tipo de Categoría I (Enfermedad, Lesión y Molestia).
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+## Spreading DF
+df_CE_T <- 
+  df_CE_T %>% 
+  spread(key = Categoría, 
+       value = Cantidad) %>% 
+  rename(
+    Enfermedades = Enfermedad,
+    Lesiones = Lesión,
+    Molestias = Molestia
+  )
+# NA Loop
+for (i in 2:ncol(df_CE_T)) {
+  df_CE_T[,i] <- df_CE_T[,i] %>% replace_na(0)
+}
+# Adding Total Row
+df_CE__FF <- 
+  df_CE_T %>%
+  mutate(Fecha = Fecha %>% as.character()) %>%
+  add_row(
+    Fecha = "",
+    'Enfermedades' = sum(df_CE_T$Enfermedades),
+    'Lesiones' = sum(df_CE_T$Lesiones),
+    'Molestias' = sum(df_CE_T$Molestias)
+  )
+# Visualization
+kable(df_CE__FF,
+      align="c", digits=3, row.names=FALSE) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
+                font_size=17) %>% 
+  pack_rows("Total", nrow(df_CE__FF), nrow(df_CE__FF)) %>% 
+  scroll_box(width="100%", height="280px")
+```
+
+### Cruce de Categorías
+
+Esta Gráfica muestra Barras asociadas a la Cantidad de Diagnósticos por Categoría I (Enfermedad, Lesión y Molestia) y coloreadas según Categoría II (Articular, Dental, Muscular Fascia, Respiratorio y Tendones).
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.align="center", fig.width=7.4, fig.height=3.3}
+# Defining the DF
+filtered_CAT <- 
+  df_CED %>%
+  select(
+    ID_Diagnóstico,
+    Categoría_I,
+    Categoría_II
+  ) %>% 
+  distinct() %>% 
+  select(!ID_Diagnóstico) %>% 
+  mutate_all(~na_if(.,"NULL")) %>% 
+  drop_na()
+# Visualization
+ggplotly(
+  ggplot(filtered_CAT, aes(x=Categoría_I, fill=Categoría_II)) +
+    geom_bar(
+      position="dodge", 
+      stat="count", 
+      alpha=.7, width=.7, 
+      color="black", size=.3
+      ) +
+    labs(x=NULL, y=NULL, fill=NULL) +
+    #scale_fill_brewer(palette = "Set1") +
+    scale_fill_brewer(palette = "Paired") +
+    theme(panel.grid.major.x = element_blank(),
+          axis.text.x=element_text(angle=45, hjust=1),
+          panel.grid.major=element_line(colour="#00000018"),
+          panel.grid.minor=element_line(colour="#00000018"),
+          panel.background=element_rect(fill="transparent",colour=NA)),
+  tooltip = c('Categoría_I', 'Categoría_II', "y")
+) %>% 
+  layout(
+    # hovermode = 'compare' # = "x unified"
+  ) %>% 
+  config(
+    displaylogo = FALSE,
+    modeBarButtonsToRemove = c("select2d", "zoomIn2d", 
+                               "zoomOut2d", "lasso2d", 
+                               "toggleSpikelines")
+  )  
+```
+
+### Disponibilidad
+
+El siguiente Diagrama de Torta muestra la distribución Proporcional de la Condición de Disponibilidad de los Jugadores.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.align="center", fig.width=7.4, fig.height=4}
+# Creating Cross Tab DF
+df_TL_AC <- 
+  df_AC %>% 
+  select(CondiciónDisponibilidad) %>% 
+  table() %>% 
+  as.data.frame() %>% 
+  rename("Disponibilidad"='.',"Cantidad"=Freq)
+
+# Visualization
+ggplotly(
+  ggplot(df_TL_AC, aes(x=Disponibilidad, y= Cantidad, 
+                       fill=Disponibilidad)) +
+    geom_bar(stat="identity", color = 'black',
+             alpha=.7, width=.8, size=.3) +
+    coord_flip() +
+    scale_colour_manual(
+      aesthetics = "fill",
+      values=c(
+        'Abandona entrenamiento/en observación' = "#ffc200", 
+        "Entrenamiento diferenciado" = "#179EB3",
+        "Lesionado" = "#ff0000",
+        "Enfermo" = "#ca0000",
+        "Apto para entrenar sintomático" ="#7cd83a",
+        "Apto para Entrenar" = "#00b848",
+        "Descanso" = "#dbebf9",
+        "Permiso administrativo" = "#fff4c7",
+        "Regenerativo/compensación física" = "#ffcaa7",
+        "Cuarentena" = "#8f299b"
+        )
+      ) + 
+    labs(x=NULL, y=NULL, fill=NULL) +
+    theme(panel.grid.major.x = element_blank(),
+          panel.grid.major=element_line(colour="#00000018"),
+          panel.grid.minor=element_line(colour="#00000018"),
+          panel.background=element_rect(fill="transparent",colour=NA)),
+  tooltip = c("x","y")
+) %>%
+  layout(
+    showlegend = FALSE
+  ) %>%
+  config(
+    displaylogo = FALSE,
+    modeBarButtonsToRemove = c("select2d", "zoomIn2d", 
+                               "zoomOut2d", "lasso2d", 
+                               "toggleSpikelines")
+  ) %>% toWebGL()
+
+```
+
+### Exposición e Incidencia
+
+Esta Tabla presenta un resumen tato de la Cantidad Total de Partidos y Entrenamientos, como de los Minutos de Exposición Totales y Índices de Lesión tanto de Partidos como de Entrenamientos. A esto se agrega, al final, el valor Total de los Minutos de Exposición y de Incidencia de Lesión.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# Entrenamiento
+T_E <- 
+  df_PD %>%
+  filter(TipoMedición %in% "Entrenamiento") %>%
+  select(FechaDimensión) %>%
+  unique() %>%
+  drop_na() %>%
+  nrow() %>%
+  round(0)
+Min_Exp_E <- 
+  df_PD %>% 
+  filter(
+    TipoMedición %in% "Entrenamiento",
+    Medición %in% "Total Duration"
+  ) %>%
+  select(ValorMedición) %>%
+  sum() %>%
+  round(0)
+Injury_E <- 
+  df_CED %>%
+  select(c("ID_Diagnóstico","Categoría_I","Instancia")) %>% 
+  distinct()  %>%
+  filter(
+    Categoría_I %in% "Lesión",
+    Instancia %in% c("Entrenamiento","Acumulación de cargas físicas")
+  ) %>% 
+  select(!c(ID_Diagnóstico,Instancia))%>%
+  table() %>% 
+  as.data.frame() %>%
+  arrange(desc(Freq)) %>%
+  select(Freq) %>%
+  slice(1) %>% 
+  as.numeric()
+IL_E <- round(((Injury_E/(Min_Exp_E/60))),2)
+# Partido
+T_P <- 
+  df_PD %>%
+  filter(TipoMedición %in% "Partido") %>%
+  select(FechaDimensión) %>%
+  unique() %>%
+  drop_na() %>%
+  nrow() %>%
+  round(0)
+Min_Exp_P <- 
+  df_PD %>% 
+  filter(
+    TipoMedición %in% "Partido",
+    Medición %in% "Total Duration"
+  ) %>%
+  select(ValorMedición) %>%
+  sum()
+Injury_P <- 
+  df_CED %>%
+  select(c("ID_Diagnóstico","Categoría_I","Instancia")) %>% 
+  distinct()  %>%
+  filter(
+    Categoría_I %in% "Lesión",
+    Instancia %in% c("Partido","Calentamiento partido")
+  ) %>% 
+  select(!c(ID_Diagnóstico,Instancia))%>%
+  table() %>% 
+  as.data.frame() %>%
+  arrange(desc(Freq)) %>%
+  select(Freq) %>%
+  slice(1) %>% 
+  as.numeric()
+IL_P <- round(((Injury_P/(Min_Exp_P/60))),2)
+# Total
+Min_Exp_T <- 
+  df_PD %>% 
+  filter(
+    Medición %in% "Total Duration"
+  ) %>%
+  select(ValorMedición) %>%
+  sum() %>%
+  round(0)
+Injury_T <- 
+  df_CED %>%
+  select(c("ID_Diagnóstico","Categoría_I")) %>% 
+  distinct() %>% 
+  select(!ID_Diagnóstico) %>%
+  filter(
+    Categoría_I %in% "Lesión"
+  ) %>%
+  table() %>% 
+  as.data.frame() %>%
+  arrange(desc(Freq)) %>%
+  select(Freq) %>%
+  slice(1) %>% 
+  as.numeric()
+IL_T <- round(((Injury_T/(Min_Exp_T/60))),2)
+# Final DF
+final.DF <- 
+  data.frame(
+    Medición = c(
+      # Entrenamiento
+      "Cantidad Total",
+      "Minutos de Exposición",
+      "Incidencia de Lesión",
+      # Partido
+      "Cantidad Total",
+      "Minutos de Exposición",
+      "Incidencia de Lesión",
+      # Total
+      "Minutos de Exposición",
+      "Incidencia de Lesión "
+    ),
+    Frecuencia = c(
+      # Entrenamiento
+      T_E %>% as.integer(), 
+      Min_Exp_E %>% as.integer(), 
+      IL_E,
+      # Partido
+      T_P %>% as.integer(), 
+      Min_Exp_P %>% as.integer(), 
+      IL_P,
+      # Promedio
+      Min_Exp_T %>% as.integer(), 
+      IL_T
+    )
+  )
+# Visualization
+kable(final.DF, align="c", digits=2, row.names=FALSE) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
+                font_size=17, fixed_thead = TRUE, full_width = TRUE) %>% 
+  pack_rows("Entrenamiento",1,3) %>% 
+  pack_rows("Partido",4,6) %>% 
+  pack_rows("Total",7,8) 
+```
+
+## Diagnóstico
+
+### Resumen
+
+Estas Tarjetas muestran la cantidad Total de *Molestias* **Musculares**, *Lesiones* **Musculares** y la suma de *Lesiones* y *Molestias* de **Tendón**, así como también la **Incidencia de Lesión** por *Entrenamiento* y el **Índice de Lesión Jugador**.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, results="hide", fig.width=7.4, fig.height=1.4}
+# Value 1
+value_1 <- 
+  df_CED %>%
+  select(c("ID_Diagnóstico","Categoría_I","Categoría_II")) %>% 
+  distinct() %>% 
+  select(!ID_Diagnóstico) %>%
+  filter(
+    Categoría_I %in% "Molestia",
+    Categoría_II %in% "Muscular Fascia"
+    ) %>%
+  table() %>% 
+  as.data.frame() %>% 
+  arrange(desc(Freq)) %>%
+  filter(
+    Freq != 0
+  ) %>%
+  select(Freq) %>%
+  slice(1) %>% 
+  as.numeric() 
+# Value 2
+value_2 <- 
+  df_CED %>%
+  select(c("ID_Diagnóstico","Categoría_I","Categoría_II")) %>% 
+  distinct() %>% 
+  select(!ID_Diagnóstico) %>%
+  filter(
+    Categoría_I %in% "Lesión",
+    Categoría_II %in% "Muscular Fascia"
+    ) %>%
+  table() %>% 
+  as.data.frame() %>% 
+  arrange(desc(Freq)) %>%
+  filter(
+    Freq != 0
+  ) %>%
+  select(Freq) %>%
+  slice(1) %>% 
+  as.numeric() 
+# Value 3
+value_3.1 <- 
+  df_CED %>%
+  select(c("ID_Diagnóstico","Categoría_I","Categoría_II")) %>% 
+  distinct() %>% 
+  select(!ID_Diagnóstico) %>%
+  filter(
+    Categoría_I %in% "Molestia",
+    Categoría_II %in% "Tendones"
+    ) %>%
+  table() %>% 
+  as.data.frame() %>% 
+  arrange(desc(Freq)) %>%
+  filter(
+    Freq != 0
+  ) %>%
+  select(Freq) %>%
+  slice(1) %>% 
+  as.numeric() 
+value_3.2 <-
+  df_CED %>%
+  select(c("ID_Diagnóstico","Categoría_I","Categoría_II")) %>% 
+  distinct() %>% 
+  select(!ID_Diagnóstico) %>%
+  filter(
+    Categoría_I %in% "Lesión",
+    Categoría_II %in% "Tendones"
+    ) %>%
+  table() %>% 
+  as.data.frame() %>% 
+  arrange(desc(Freq)) %>%
+  filter(
+    Freq != 0
+  ) %>%
+  select(Freq) %>%
+  slice(1) %>% 
+  as.numeric() 
+value_3 <- value_3.1 + value_3.2
+# Defining the DF
+df <- 
+  data.frame(
+    values=c(value_1,value_2,value_3), 
+    infos=c("Molestias Musculares", "Lesiones Musculares", "Lesión/Molestia Tendón"), 
+    icons=c("fa-medkit", "fa-medkit", "fa-medkit")
+    )
+# Visualization
+createValueBoxes_G(df, rows=1)
+
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, results="hide", fig.width=7.4, fig.height=1.4}
+# Value 1
+value_1 <- 
+  df_CED %>%
+  select(c("ID_Diagnóstico","Categoría_I","Categoría_II")) %>% 
+  distinct() %>% 
+  select(!ID_Diagnóstico) %>%
+  filter(
+    Categoría_I %in% "Molestia",
+    Categoría_II %in% "Articular"
+    ) %>%
+  table() %>% 
+  as.data.frame() %>% 
+  arrange(desc(Freq)) %>%
+  filter(
+    Freq != 0
+  ) %>%
+  select(Freq) %>%
+  slice(1)
+# Value 2
+value_2 <- 
+   df_CED %>%
+  select(c("ID_Diagnóstico","Categoría_I","Categoría_II")) %>% 
+  distinct() %>% 
+  select(!ID_Diagnóstico) %>%
+  filter(
+    Categoría_I %in% "Lesión",
+    Categoría_II %in% "Articular"
+    ) %>%
+  table() %>% 
+  as.data.frame() %>% 
+  arrange(desc(Freq)) %>%
+  filter(
+    Freq != 0
+  ) %>%
+  select(Freq) %>%
+  slice(1)
+# Defining the DF
+df <- 
+  data.frame(
+    values=c(value_1$Freq[1],value_2$Freq[1]), 
+    infos=c("Molestias Articulares", "Lesiones Articulares"), 
+    icons=c("fa-medkit", "fa-medkit")
+    )
+# Visualization
+createValueBoxes_G(df, rows=1)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, results="hide", fig.width=7.4, fig.height=1.4}
+# Value 1
+Injury <- 
+  df_CED %>%
+  select(c("ID_Diagnóstico","Categoría_I")) %>% 
+  distinct() %>% 
+  select(!ID_Diagnóstico) %>%
+  filter(
+    Categoría_I %in% "Lesión"
+  ) %>%
+  table() %>% 
+  as.data.frame() %>%
+  arrange(desc(Freq)) %>%
+  select(Freq) %>%
+  slice(1) %>% 
+  as.numeric()
+Min_Exp <- 
+  df_PD %>% 
+  filter(
+    TipoMedición %in% "Entrenamiento",
+    Medición %in% "Total Duration"
+  ) %>%
+  select(ValorMedición) %>% 
+  sum()
+value_1 <- round(((Injury/(Min_Exp/60))),2)
+
+# Value 2
+value_2 <- 
+  (((df_CED %>%
+        select(c("ID_Diagnóstico","Categoría_I","Jugador")) %>% 
+        distinct() %>% 
+        select(!ID_Diagnóstico) %>%
+        group_by(Jugador, Categoría_I) %>% 
+        tally() %>% 
+        filter(Categoría_I %in% "Lesión") %>% 
+        nrow()
+    ) / (
+      df_CED %>%
+        select(c("ID_Diagnóstico","Categoría_I","Jugador")) %>% 
+        distinct() %>% 
+        select(Jugador) %>%
+        unique() %>%
+        drop_na() %>% 
+        nrow()
+      )
+    ) * 100
+   ) %>% round(1)
+
+# Defining the DF
+df <- 
+  data.frame(
+    values=c(value_1,value_2), 
+    infos=c("Incidencia Lesión Entr.", "Índice Lesión Jugador"), 
+    icons=c("fa-stethoscope", "fa-stethoscope")
+    )
+# Visualization
+createValueBoxes_G(df, rows=1)
+
+```
+
+### Según Categorías
+
+La siguiente Tabla muestra todos los registros de **Diagnósticos** asociados a cada Jugador de acuerdo a su Fecha, Categorías y Lateralidad.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, out.extra='style="border: hide;"'}
+# Visualización de la Tabla
+kable(
+  df_CED %>% 
+    select(
+      ID_Diagnóstico,
+      Jugador, 
+      Fecha = FechaDiagnóstico,
+      Categoría = Categoría_I, 
+      'Categoría II' = Categoría_II, 
+      'Complemento II' = Complemento_II,
+      Diagnóstico, 
+      Lado
+      ) %>% 
+    drop_na() %>% 
+    distinct() %>%
+    select(!ID_Diagnóstico),
+      align="c", digits=3, row.names=FALSE) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), font_size=17) %>% 
+  scroll_box(width="100%", height="300px")
+```
+
+<br>
+
+### Molestias
+
+#### Según Categoría II
+
+Esta Tabla muestra la Cantidad de Eventos Clínicos de tipo **Molestia** ingresados según subgrupo de Categoría II (Articular, Dental, Muscular Fascia, Respiratorio y Tendones).
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# Creating Df Object
+table.DF_Molestia <- 
+  df_CED %>%
+  select(ID_Diagnóstico,Categoría_I,Categoría_II) %>%
+  distinct() %>% 
+  select(!ID_Diagnóstico) %>%
+  drop_na() %>%
+  filter(Categoría_I %in% "Molestia") %>%
+  table() %>% 
+  as.data.frame() %>% 
+  arrange(desc(Freq)) %>%
+  filter(Freq != 0) %>% 
+  rename("Frecuencia"=Freq)
+# Droping levels
+for (i in seq(1, (ncol(table.DF_Molestia)-1), by=1)) {
+  table.DF_Molestia[,i] <- droplevels(table.DF_Molestia[,i], exclude="NULL")
+}
+# Final table
+table.DF_Molestia <- 
+  table.DF_Molestia %>% 
+  drop_na() %>% 
+  mutate(
+    Porcentage = paste(round((Frecuencia/sum(Frecuencia))*100,1),"%",sep="")
+  ) %>% 
+  rename('Categoría I' = Categoría_I, 'Categoría II' = Categoría_II, Cantidad = Frecuencia)
+kable(table.DF_Molestia,
+      align="c", digits=3, row.names=FALSE) %>% 
+  add_header_above(c("Subgrupos" = 2, "Frecuencia" = 2)) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
+                font_size=17)
+```
+
+La siguiente Gráfica muestra nuevamente la Cantidad de Eventos Clínicos de tipo **Molestia** ingresados según subgrupo de Categoría II (Articular, Dental, Muscular Fascia, Respiratorio y Tendones).
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=7, fig.height=2.5, fig.align="center"}
+# Creating Cross Tab DF
+df_S <- 
+  df_CED %>% 
+  select(ID_Diagnóstico,Categoría_I,Categoría_II) %>%
+  distinct() %>%
+  select(!ID_Diagnóstico) %>%
+  filter(Categoría_I %in% "Molestia") %>%
+  select(Categoría_II) %>% 
+  table() %>% 
+  as.data.frame() %>% 
+  rename("Cantidad"=Freq, "Categoría_II"='.')
+# Filtering Loop
+if (nrow(df_S %>% filter(Cantidad != 0)) != 0) {
+  df_S <- df_S %>% filter(Cantidad != 0)
+} 
+# Visualization
+ ggplotly(
+    ggplot(df_S, aes(x=Categoría_II, y= Cantidad, fill=Categoría_II)) +
+      geom_bar(stat="identity", 
+               alpha=.7, 
+               width=.7, 
+               color="black", 
+               size=.3) +
+      ylim(0, ifelse(max(df_S$Cantidad)==0,3,max(df_S$Cantidad))) +
+      coord_flip() +
+      labs(x=NULL, y=NULL, fill=NULL) +
+      #scale_fill_brewer(palette = "Set1") +
+      scale_fill_brewer(palette = "Paired") +
+      theme(panel.grid.major.x = element_blank(),
+            panel.grid.major=element_line(colour="#00000018"),
+            panel.grid.minor=element_line(colour="#00000018"),
+            panel.background=element_rect(fill="transparent",colour=NA)),
+      tooltip = c("x","y")
+  ) %>%
+    layout(
+      showlegend = FALSE
+  ) %>%
+  config(
+    displaylogo = FALSE,
+    modeBarButtonsToRemove = c("select2d", "zoomIn2d", 
+                               "zoomOut2d", "lasso2d", 
+                               "toggleSpikelines")
+  ) %>% toWebGL()
+```
+
+#### Según Categoría I y Complemento
+
+Esta Gráfica presenta la Cantidad de Eventos Clínicos de tipo **Molestia** ingresados según subgrupo de Complemento II (Adductores, Cuádriceps, Gemelos, Isquiotibial, en otros) y asociado a cada valor de Categoría I (Enfermedad, Lesión y Molestia).
+
+<br>
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=7.4, fig.height=3.3}
+# Creating Cross Tab DF
+df_G <- 
+  df_CED %>% 
+  select(ID_Diagnóstico,Categoría_I,Categoría_II,Complemento_II) %>%
+  distinct() %>%
+  select(!ID_Diagnóstico) %>%
+  filter(Categoría_I %in% "Molestia") %>%
+  select(Categoría_II, Complemento_II) %>% 
+  table() %>% 
+  as.data.frame() %>% 
+  rename("Cantidad"=Freq)
+# Creating Specific DFs
+df_TL_Graph_1 <- 
+  df_G %>% filter(Categoría_II %in% "Articular")
+if (nrow(df_TL_Graph_1 %>% filter(Cantidad != 0)) != 0) {
+  df_TL_Graph_1 <- df_TL_Graph_1 %>% filter(Cantidad != 0)
+} 
+df_TL_Graph_2 <- 
+  df_G %>% filter(Categoría_II %in% "Muscular Fascia")
+if (nrow(df_TL_Graph_2 %>% filter(Cantidad != 0)) != 0) {
+  df_TL_Graph_2 <- df_TL_Graph_2 %>% filter(Cantidad != 0)
+} 
+df_TL_Graph_3 <- 
+  df_G %>% filter(Categoría_II %in% "Tendones")
+if (nrow(df_TL_Graph_3 %>% filter(Cantidad != 0)) != 0) {
+  df_TL_Graph_3 <- df_TL_Graph_3 %>% filter(Cantidad != 0)
+} 
+# Visualization
+subplot(
+  groupBarPlot(df_TL_Graph_1), 
+  groupBarPlot(df_TL_Graph_2), 
+  groupBarPlot(df_TL_Graph_3)
+) %>%
+    layout(
+      font=list(family = "sans serif", size = 12),
+      showlegend = FALSE,
+      title = " Articular                                 Muscular                                Tendones"
+  ) %>% 
+  config(
+    displaylogo = FALSE,
+    modeBarButtonsToRemove = c("select2d", "zoomIn2d", 
+                               "zoomOut2d", "lasso2d", 
+                               "toggleSpikelines")
+  ) %>% toWebGL()
+```
+
+<br>
+
+### Lesiones
+
+#### Según Diagnóstico
+
+La siguiente Tabla presenta la Cantidad de Eventos Clínicos de tipo **Lesión** ingresados según subgrupo de Diagnóstico.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# Creating Df Object
+table.DF_Lesión <- df_CED %>%
+  select(ID_Diagnóstico, Categoría_I, Diagnóstico) %>% 
+  distinct() %>% 
+  select(!ID_Diagnóstico) %>%
+  drop_na() %>%
+  filter(Categoría_I %in% "Lesión") %>%
+  table() %>% 
+  as.data.frame() %>% 
+  arrange(desc(Freq)) %>%
+  filter(Freq != 0) %>% 
+  rename("Frecuencia"=Freq)
+# Droping levels
+for (i in seq(1, (ncol(table.DF_Lesión)-1), by=1)) {
+  table.DF_Lesión[,i] <- droplevels(table.DF_Lesión[,i], exclude="NULL")
+}
+# Final table
+table.DF_Lesión <- 
+  table.DF_Lesión %>% 
+  drop_na() %>% 
+  mutate(
+    Porcentage = paste(round((Frecuencia/sum(Frecuencia))*100,1),"%",sep="")
+  ) %>%
+  rename(Categoría = Categoría_I, Cantidad = Frecuencia)
+kable(table.DF_Lesión,
+      align="c", digits=3, row.names=FALSE) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
+                font_size=17) %>% 
+  add_header_above(c("Subgrupos" = 2, "Frecuencia" = 2)) 
+```
+
+#### Según Categoría II
+
+Esta Gráfica muestra la Cantidad de Eventos Clínicos de tipo **Lesión** ingresados según subgrupo de Categoría II (Articular, Dental, Muscular Fascia, Respiratorio y Tendones).
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=7, fig.height=2.5}
+# Creating Cross Tab DF
+df_S <- 
+  df_CED %>% 
+  select(ID_Diagnóstico,Categoría_I,Categoría_II) %>%
+  distinct() %>%
+  select(!ID_Diagnóstico) %>%
+  filter(Categoría_I %in% "Lesión") %>%
+  select(Categoría_II) %>% 
+  table() %>% 
+  as.data.frame() %>% 
+  rename("Cantidad"=Freq, "Categoría_II"='.')
+# Loop
+if (nrow(df_S %>% filter(Cantidad != 0)) != 0) {
+  df_S <- df_S %>% filter(Cantidad != 0)
+} 
+# Visualization
+ ggplotly(
+    ggplot(df_S, aes(x=Categoría_II, y= Cantidad, fill=Categoría_II)) +
+      geom_bar(stat="identity", 
+               alpha=.7, 
+               width=.7, 
+               color="black", 
+               size=.3) +
+      ylim(0, ifelse(max(df_S$Cantidad)==0,3,max(df_S$Cantidad))) +
+      coord_flip() +
+      labs(x=NULL, y=NULL, fill=NULL) +
+      #scale_fill_brewer(palette = "Set1") +
+      scale_fill_brewer(palette = "Paired") +
+      theme(panel.grid.major.x = element_blank(),
+            panel.grid.major=element_line(colour="#00000018"),
+            panel.grid.minor=element_line(colour="#00000018"),
+            panel.background=element_rect(fill="transparent",colour=NA)),
+      tooltip = c("x","y")
+  ) %>%
+    layout(
+      showlegend = FALSE
+  ) %>%
+  config(
+    displaylogo = FALSE,
+    modeBarButtonsToRemove = c("select2d", "zoomIn2d", 
+                               "zoomOut2d", "lasso2d", 
+                               "toggleSpikelines")
+  ) %>% toWebGL()
+```
+
+#### Según Categoría II e Instancia Partido
+
+Esta Gráfica muestra la Cantidad de Eventos Clínicos de tipo **Lesión** ingresados según subgrupo de Categoría II (Articular, Dental, Muscular Fascia, Respiratorio y Tendones) y Instancia de Partido (Margen de minutos).
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=7.4, fig.height=3.3}
+# Creating Cross Tab DF
+df_INS <- 
+  df_CED %>%
+  select(ID_Diagnóstico,Categoría_I,InstanciaPartido,Categoría_II) %>%
+  distinct() %>%
+  select(!ID_Diagnóstico) %>%
+  table() %>%
+  as.data.frame() %>%
+  filter(Categoría_I %in% "Lesión", Freq != 0) %>%
+  select(Categoría_II, InstanciaPartido, Cantidad = Freq)
+# Visualization
+ggplotly(
+  ggplot(df_INS, aes(x=InstanciaPartido, y= Cantidad, fill=Categoría_II)) +
+    geom_bar(stat="identity", 
+             alpha=.7, width=.6, 
+             color="black", size=.3) +
+    #coord_flip() +
+    labs(x=NULL, y=NULL, fill=NULL) +
+    scale_fill_brewer(palette = "Paired") +
+    theme(panel.grid.major.x = element_blank(),
+          panel.grid.major=element_line(colour="#00000018"),
+          panel.grid.minor=element_line(colour="#00000018"),
+          panel.background=element_rect(fill="transparent",colour=NA)),
+  tooltip = c("x","y","fill")
+) %>%
+  config(
+    displaylogo = FALSE,
+    modeBarButtonsToRemove = c("select2d", "zoomIn2d", 
+                               "zoomOut2d", "lasso2d", 
+                               "toggleSpikelines")
+  ) %>% toWebGL()
+```
+
+
+#### Según Categoría I y Complemento
+
+Esta Gráfica presenta la Cantidad de Eventos Clínicos de tipo **Lesión** ingresados según subgrupo de Complemento II (Adductores, Cuádriceps, Gemelos, Isquiotibial, en otros) y asociado a cada valor de Categoría I (Enfermedad, Lesión y Molestia).
+
+<br>
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=7.4, fig.height=3.3}
+# Creating Cross Tab DF
+df_G <- 
+  df_CED %>% 
+  select(ID_Diagnóstico,Categoría_I,Categoría_II,Complemento_II) %>%
+  distinct() %>%
+  select(!ID_Diagnóstico) %>%
+  filter(Categoría_I %in% "Lesión") %>%
+  select(Categoría_II, Complemento_II) %>% 
+  table() %>% 
+  as.data.frame() %>% 
+  rename("Cantidad"=Freq)
+# Creating Specific DFs
+df_TL_Graph_1 <- 
+  df_G %>% filter(Categoría_II %in% "Articular")
+  if (nrow(df_TL_Graph_1 %>% filter(Cantidad != 0)) != 0) {
+    df_TL_Graph_1 <- df_TL_Graph_1 %>% filter(Cantidad != 0)
+  } 
+df_TL_Graph_2 <- 
+  df_G %>% filter(Categoría_II %in% "Muscular Fascia")
+  if (nrow(df_TL_Graph_2 %>% filter(Cantidad != 0)) != 0) {
+    df_TL_Graph_2 <- df_TL_Graph_2 %>% filter(Cantidad != 0)
+  } 
+df_TL_Graph_3 <- 
+  df_G %>% filter(Categoría_II %in% "Tendones")
+  if (nrow(df_TL_Graph_3 %>% filter(Cantidad != 0)) != 0) {
+    df_TL_Graph_3 <- df_TL_Graph_3 %>% filter(Cantidad != 0)
+  } 
+# Visualization
+subplot(
+  groupBarPlot(df_TL_Graph_1), 
+  groupBarPlot(df_TL_Graph_2), 
+  groupBarPlot(df_TL_Graph_3)
+) %>%
+    layout(
+      font=list(family = "sans serif", size = 12),
+      showlegend = FALSE,
+      title = " Articular                                 Muscular                                Tendones"
+  ) %>% 
+  config(
+    displaylogo = FALSE,
+    modeBarButtonsToRemove = c("select2d", "zoomIn2d", 
+                               "zoomOut2d", "lasso2d", 
+                               "toggleSpikelines")
+  ) %>% toWebGL()
+```
+
+<br>
+
+### Enfermedades
+
+#### Según Diagnóstico
+
+Esta Tabla presenta la Cantidad de Eventos Clínicos de tipo **Enfermedad** ingresados según subgrupo de Diagnóstico.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# Creating Df Object
+table.DF_Enfermedad <- 
+  df_CED %>%
+  select(ID_Diagnóstico,Categoría_I,Diagnóstico) %>% 
+  distinct() %>% 
+  select(!ID_Diagnóstico) %>%
+  drop_na() %>%
+  filter(Categoría_I %in% "Enfermedad") %>%
+  table() %>% 
+  as.data.frame() %>% 
+  arrange(desc(Freq)) %>%
+  filter(Freq != 0) %>% 
+  rename("Frecuencia"=Freq)
+# Droping levels
+for (i in seq(1, (ncol(table.DF_Enfermedad)-1), by=1)) {
+  table.DF_Enfermedad[,i] <- droplevels(table.DF_Enfermedad[,i], exclude="NULL")
+}
+# Final table
+table.DF_Enfermedad <- 
+  table.DF_Enfermedad %>% 
+  drop_na() %>% 
+  mutate(
+    Porcentage = paste(round((Frecuencia/sum(Frecuencia))*100,1),"%",sep="")
+  ) %>%
+  rename(Categoría = Categoría_I, Cantidad = Frecuencia)
+# Visualization
+kable(table.DF_Enfermedad,
+      align="c", digits=3, row.names=FALSE) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
+                font_size=17) %>% 
+  add_header_above(c("Subgrupos" = 2, "Frecuencia" = 2))
+```
+
+#### Según Categoría II
+
+Esta Gráfica presenta la Cantidad de Eventos Clínicos de tipo **Enfermedad** ingresados según subgrupo de Categoría II (Articular, Dental, Muscular Fascia, Respiratorio y Tendones).
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=7, fig.height=2.5}
+# Creating Cross Tab DF
+df_S <- 
+  df_CED %>% 
+  select(ID_Diagnóstico,Categoría_I,Categoría_II) %>%
+  distinct() %>%
+  select(!ID_Diagnóstico) %>%
+  filter(Categoría_I %in% "Enfermedad") %>%
+  select(Categoría_II) %>% 
+  table() %>% 
+  as.data.frame() %>% 
+  rename("Cantidad"=Freq, "Categoría_II"='.')
+# Loop for droping 0 values
+if (nrow(df_S %>% filter(Cantidad != 0)) != 0) {
+  df_S <- df_S %>% filter(Cantidad != 0)
+} 
+# Visualization
+ ggplotly(
+    ggplot(df_S, aes(x=Categoría_II, y= Cantidad, fill=Categoría_II)) +
+      geom_bar(stat="identity", color="black",
+               alpha=.7,  width=.7, size=.3) +
+      ylim(0, ifelse(max(df_S$Cantidad)==0,3,max(df_S$Cantidad))) +
+      coord_flip() +
+      labs(x=NULL, y=NULL, fill=NULL) +
+      #scale_fill_brewer(palette = "Set1") +
+      scale_fill_brewer(palette = "Paired") +
+      theme(panel.grid.major.x = element_blank(),
+            panel.grid.major=element_line(colour="#00000018"),
+            panel.grid.minor=element_line(colour="#00000018"),
+            panel.background=element_rect(fill="transparent",colour=NA)),
+      tooltip = c("x","y")
+  ) %>%
+    layout(
+      showlegend = FALSE
+  ) %>%
+  config(
+    displaylogo = FALSE,
+    modeBarButtonsToRemove = c("select2d", "zoomIn2d", 
+                               "zoomOut2d", "lasso2d", 
+                               "toggleSpikelines")
+  ) %>% toWebGL()
+```
+
+### Medicamentos
+
+La siguiente Tabla muestra todos los registros ingresados en relación a los Medicamentos utilizados en Diagnósticos, incluyendo su Clasificación, Vía, Fecha y Dosis (cuando corresponde).
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# Visualization
+kable(df_MED %>% 
+        select(-c(Categoría,ID_Diagnóstico,ID_Medicamento)) %>%
+        rename(
+          Clasificación = ClasificaciónMed,
+          Fecha = FechaDiagnóstico,
+          "Vía de Administración" = Vía,
+          "Dosis (ml/mg)" = Dosis
+        ),
+      align="c", digits=3, row.names=FALSE) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
+                font_size=17) 
+```
+
+## Gestión Médica
+
+### Resumen
+
+Las siguientes Tarjetas muestran el Total ingresado de **Eventos Clínicos**, **Tratamientos Kinésico** y **Masajes**.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, results="hide", fig.width=7.4, fig.height=1.4}
+# Value 1
+value_1 <- 
+  df_PD_F%>% 
+  filter(Dimensión %in% "Masoterápea") %>% 
+  group_by(Jugador, FechaDimensión) %>% 
+  summarise(
+    Cantidad_1=n_distinct(Medición)
+  ) %>%
+  rename(Fecha=FechaDimensión) %>%
+  group_by(Fecha) %>% 
+  summarise(
+    Cantidad=sum(Cantidad_1)
+  ) %>% 
+  select(Cantidad) %>% 
+  sum()
+# Value 2
+value_2 <- 
+  df_CED %>% 
+  select(ID_EventoClínico) %>% 
+  unique() %>% 
+  drop_na() %>%
+  nrow()
+# Value 3
+value_3 <- 
+  df_KT %>% 
+  select(ID_TratamientoKinésico) %>% 
+  unique() %>% 
+  drop_na() %>%
+  nrow()
+# Defining the DF
+df <- 
+  data.frame(
+    values=c(value_1,value_2,value_3), 
+    infos=c("Total Masajes", "Total Eventos Clínicos", "Total KTR"), 
+    icons=c("fa-medkit", "fa-medkit", "fa-medkit")
+    )
+# Visualization
+createValueBoxes_G(df, rows=1)
+
+```
+
+### Frecuencia Temporal
+
+La siguiente Gráfica muestra la Cantidad de **Eventos Clínicos**, **Tratamientos Kinésicos**, **Acciones Kinésicas** y **Masajes** según Fecha de ingreso. Las líneas Rojas Verticales entrecortadas indican los días en los cuales el Plantel jugó Partido.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=7.4, fig.height=3.8}
+## Initial Data Frame
+df.ID <- 
+  rbind(
+    df_CED %>% 
+      group_by(FechaEventoClínico) %>% 
+      summarise(
+        Cantidad=n_distinct(ID_EventoClínico)
+      ) %>% 
+      mutate(Grupo="Eventos Clínicos",
+             Fecha=FechaEventoClínico) %>%
+      select(!FechaEventoClínico),
+    df_KT %>% 
+      group_by(FechaTratamientoKinésico) %>% 
+      summarise(
+        Cantidad=n_distinct(ID_TratamientoKinésico)
+      ) %>% 
+      mutate(Grupo="Tratamientos Kinésicos") %>%
+      rename(Fecha=FechaTratamientoKinésico),
+    df_KA %>% 
+          group_by(FechaAcciónKinésica) %>% 
+          summarise(
+            Cantidad=n_distinct(ID_AcciónKinésica)
+          ) %>% 
+          mutate(Grupo="Acciones Kinésicas") %>%
+          rename(Fecha=FechaAcciónKinésica),
+    df_PD_F%>% 
+      filter(Dimensión %in% "Masoterápea") %>% 
+      group_by(Jugador, FechaDimensión) %>% 
+      summarise(
+        Cantidad_1=n_distinct(Medición)
+      ) %>%
+      rename(Fecha=FechaDimensión) %>%
+      group_by(Fecha) %>% 
+      summarise(
+        Cantidad=sum(Cantidad_1)
+      ) %>% 
+      mutate(Grupo="Masajes")
+  ) %>%
+  filter(!is.na(Fecha)) %>%
+  arrange(Fecha)
+## Join & Final Data Frame
+df.ID <- 
+  full_join(
+    rbind(
+      data.frame(
+        Fecha = seq.Date(
+          from = min(df.ID$Fecha),
+          to = max(df.ID$Fecha),
+          by = "day"
+        ),
+        Cantidad = 0,
+        Grupo = "Tratamientos Kinésicos"
+      ),
+      data.frame(
+        Fecha = seq.Date(
+          from = min(df.ID$Fecha),
+          to = max(df.ID$Fecha),
+          by = "day"
+        ),
+        Cantidad = 0,
+        Grupo = "Acciones Kinésicas"
+      ),
+      data.frame(
+        Fecha = seq.Date(
+          from = min(df.ID$Fecha),
+          to = max(df.ID$Fecha),
+          by = "day"
+        ),
+        Cantidad = 0,
+        Grupo = "Masajes"     
+      ),
+      data.frame(
+        Fecha = seq.Date(
+          from = min(df.ID$Fecha),
+          to = max(df.ID$Fecha),
+          by = "day"
+        ),
+        Cantidad = 0,
+        Grupo = "Eventos Clínicos"
+      )
+    ),
+    df.ID
+  ) %>%
+  mutate(Fecha = Fecha %>% as.Date()) %>%
+  group_by(Fecha, Grupo) %>%
+  summarise(Cantidad = sum(Cantidad))
+## Matchs
+matchs <- 
+  df_PD %>% 
+  filter(TipoMedición %in% "Partido") %>%
+  select(FechaDimensión) %>%
+  unique() %>%
+  drop_na()
+## Visualization
+ggplotly(
+  ggplot(df.ID, aes(x=Fecha, y=Cantidad)) +
+    # Vertical Lines
+    geom_vline(xintercept=as.numeric(as.Date(
+      matchs$FechaDimensión
+    )), 
+    linetype="dashed", color="#E31414", size=.5, alpha=.5) +
+    # Variables
+    geom_line(aes(colour=Grupo), alpha=0.5, size=0.8) +
+    scale_colour_manual(values=c('Tratamientos Kinésicos'="#10B534", 
+                                 'Acciones Kinésicas'="#179EB3",
+                                 'Eventos Clínicos'="#1348C2", 
+                                 'Masajes'="#C916C0")) + 
+    geom_point(aes(colour=Grupo), alpha=1, size=1.4) +
+    # Graph & Axis
+    scale_y_continuous(
+      limits = c(0, ifelse(max(df.ID$Cantidad) > 15, 
+                           sum(max(df.ID$Cantidad),4), 
+                           sum(max(df.ID$Cantidad),2))),
+      breaks = seq(0, ifelse(max(df.ID$Cantidad) > 15, 
+                             sum(max(df.ID$Cantidad),2), 
+                             sum(max(df.ID$Cantidad),1)),
+                   ifelse(max(df.ID$Cantidad) > 18, 3,
+                          ifelse(max(df.ID$Cantidad) > 9, 2, 1)))
+    ) +
+    scale_x_date(
+      date_labels="%b-%d", 
+      date_breaks= ifelse(difftime(max(df.ID$Fecha), min(df.ID$Fecha), units = "days") %>% 
+                            as.numeric() > 150, 
+                          "month",
+                          ifelse(difftime(max(df.ID$Fecha), min(df.ID$Fecha), units = "days") %>% 
+                                   as.numeric() > 25, 
+                                 "week", "day"))
+    ) +
+    labs(y=NULL, x=NULL, colour=NULL) +
+    theme(
+      axis.text.x = element_text(
+      angle = ifelse(difftime(max(df.ID$Fecha), min(df.ID$Fecha), units = "days") %>% as.numeric() > 25, 0, 45)
+      ),
+      panel.grid.major=element_line(colour="#00000018"),
+      panel.grid.minor=element_line(colour="#00000018"),
+      panel.background=element_rect(fill="transparent",colour=NA)
+      )
+) %>% 
+  layout(
+    legend = list(orientation = 'h'),
+    hovermode = "x unified", # = "x unified"
+    hoverlabel = list(bordercolor = 'black')
+  ) %>% 
+  config( 
+    displaylogo = FALSE,
+    modeBarButtonsToRemove = c("select2d", "zoomIn2d", 
+                               "zoomOut2d", "lasso2d", 
+                               "toggleSpikelines")
+  ) %>% toWebGL() 
+```
+
+A su vez, La siguiente Tabla muestra nuevamente la Cantidad de **Eventos Clínicos**, **Tratamientos Kinésicos**, **Acciones Kinésicas** y **Masajes** según Fecha de ingreso.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# Joining DFs
+df.T <- 
+  full_join(
+    full_join(
+      df_CED %>% 
+        group_by(FechaEventoClínico) %>% 
+        summarise(
+          EventoClínicos=n_distinct(ID_EventoClínico)
+        ) %>% 
+        mutate(Fecha=FechaEventoClínico) %>%
+        select(!FechaEventoClínico),
+      full_join(
+        df_KA %>% 
+          group_by(FechaAcciónKinésica) %>% 
+          summarise(
+            AccionesKinésicas=n_distinct(ID_AcciónKinésica)
+          ) %>%
+          rename(Fecha=FechaAcciónKinésica),
+        df_KT %>% 
+          group_by(FechaTratamientoKinésico) %>% 
+          summarise(
+            TratamientosKinésicos=n_distinct(ID_TratamientoKinésico)
+          ) %>%
+          rename(Fecha=FechaTratamientoKinésico),
+        by = "Fecha"
+      ),
+      by = "Fecha"
+    ),
+    df_PD_F%>% 
+      filter(Dimensión %in% "Masoterápea") %>%  
+      group_by(Jugador, FechaDimensión) %>% 
+      summarise(
+        Cantidad_1=n_distinct(Medición)
+      ) %>%
+      rename(Fecha=FechaDimensión) %>%
+      group_by(Fecha) %>% 
+      summarise(
+        Masajes=sum(Cantidad_1)
+      )
+  ) %>%
+  filter(!is.na(Fecha)) %>%
+  arrange(Fecha) %>%
+  as.data.frame() %>%
+  mutate(
+    EventoClínicos = EventoClínicos %>% as.numeric(),
+    TratamientosKinésicos = TratamientosKinésicos %>% as.numeric(),
+    AccionesKinésicas = AccionesKinésicas %>% as.numeric(),
+    Masajes = Masajes %>% as.numeric()
+  )
+## Join & Final Data Frame
+df.M <- 
+  full_join(
+    data.frame(
+      Fecha = seq.Date(
+        from = min(df.T$Fecha),
+        to = max(df.T$Fecha),
+        by = "day"
+      ),
+      EventoClínicos = 0,
+      TratamientosKinésicos = 0,
+      AccionesKinésicas = 0,
+      Masajes = 0
+      ),
+    df.T
+  ) %>%
+  mutate(Fecha = Fecha %>% as.Date()) %>%
+  group_by(Fecha) %>%
+  summarise('Eventos Clínicos' = sum(EventoClínicos) %>% as.numeric(),
+            'Tratamientos Kinésicos' = sum(TratamientosKinésicos) %>% as.numeric(),
+            'Acciones Kinésicas' = sum(AccionesKinésicas) %>% as.numeric(),
+            'Masajes' = sum(Masajes) %>% as.numeric()) %>%
+  as.data.frame() 
+# NA Loop
+for (i in 2:ncol(df.M)) {
+  df.M[,i] <- df.M[,i] %>% replace_na(0)
+}
+# Adding Total Row
+df.MAN <- 
+  df.M %>%
+  mutate(Fecha = Fecha %>% as.character()) %>%
+  add_row(
+    Fecha = "",
+    'Eventos Clínicos' = sum(df.M$`Eventos Clínicos`),
+    'Tratamientos Kinésicos' = sum(df.M$`Tratamientos Kinésicos`),
+    'Acciones Kinésicas' = sum(df.M$`Acciones Kinésicas`),
+    'Masajes' = sum(df.M$Masajes)
+  ) %>%
+  rename('Fecha Registro' = Fecha)
+# Visualization
+kable(df.MAN,
+      align="c", digits=3, row.names=FALSE) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
+                font_size=17) %>% 
+  pack_rows("Total", nrow(df.MAN), nrow(df.MAN)) %>% 
+  scroll_box(width="100%", height="280px") 
+```
+
+### Acciones y Tratamientos
+
+La siguiente Gráfica muestra la Cantidad de **Acciones Kinésicas** y **Tratamientos Kinésicos** según su Tipo.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=7.4, fig.height=3.5}
+## Defining Objects and Matching Colnames
+df_KA_G <- df_KA
+df_KT_G <- df_KT
+colnames(df_KA_G) <- colnames(df_KT_G)
+## Creating Df Object
+table.DF_KT <- 
+  rbind(df_KA_G,df_KT_G) %>%
+  select(TratamientoKinésico) %>%
+  drop_na() %>%
+  table() %>% 
+  as.data.frame() %>% 
+  arrange(desc(Freq)) %>%
+  filter(Freq != 0) %>% 
+  rename("Cantidad"=Freq, Tipo='.') 
+# Visualization
+    ggplotly(
+      ggplot(table.DF_KT, aes(x=Tipo, y= Cantidad, fill=Tipo)) +
+        geom_bar(stat="identity", 
+                 alpha=.7, 
+                 width=.7, 
+                 color="black", 
+                 size=.3) +
+        coord_flip() +
+        labs(x=NULL, y=NULL, fill=NULL) +
+        #scale_fill_brewer(palette = "Paired") +
+        theme(panel.grid.major.x = element_blank(),
+              panel.grid.major=element_line(colour="#00000018"),
+              panel.grid.minor=element_line(colour="#00000018"),
+              panel.background=element_rect(fill="transparent",colour=NA)),
+      tooltip = c("x","y")
+    ) %>%
+      layout(
+        showlegend = FALSE
+      ) %>%
+      config(
+        displaylogo = FALSE,
+        modeBarButtonsToRemove = c("select2d", "zoomIn2d", 
+                                   "zoomOut2d", "lasso2d", 
+                                   "toggleSpikelines")
+      ) %>% toWebGL()
+```
+
+<br>
+
+## Autoreporte
+
+### Estadística General
+
+Esta Gráfica presenta tanto el **Promedio** el **Intervalo de Confianza** asociado a todas las **Mediciones** de Autoreporte del Plantel. Si la Barra de Error (ubicada en la parte superior de cada Barra) es de color Rojo, quiere decir que el Promedio no es representativo de los datos; en cambio, si es de color negro, quiere decir que sí lo es.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=7.4, fig.height=6}
+## Total Wellness
+Wellness <- 
+  df_PD %>% 
+  filter(
+    Dimensión %in% "Autoreporte",
+    TipoMedición %in% "Bienestar",
+    !Medición %in% "Nivel de percepción por el esfuerzo"
+  ) %>% 
+  pull(ValorMedición) 
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=7.4, fig.height=4.8}
+## General DF
+df.P_g <- 
+  df_PD %>% 
+  filter(
+    Dimensión %in% "Autoreporte",
+    TipoMedición %in% "Bienestar"
+  ) %>% 
+  group_by(Medición) %>% 
+  summarise(
+    Promedio = mean(ValorMedición) %>% round(1),
+    Desviación = sd(ValorMedición) %>% round(1)
+    ) %>% 
+  as.data.frame() %>%
+  add_row(
+    Medición = "Total Wellness",
+    Promedio = mean(Wellness) %>% round(1),
+    Desviación = sd(Wellness) %>% round(1),
+    .before = 1
+  ) %>%
+  mutate(Color_Fill = 0, Color_Line = 0)
+## Loop for Colors
+for (i in seq(1, nrow(df.P_g), by=1)) {
+  df.P_g$Color_Line[i] = if (df.P_g$Promedio[i]>2*df.P_g$Desviación[i]) { "black" } else { "red" } 
+}
+## Sorting Levels
+df.P_g$Medición <- 
+  factor(
+    df.P_g$Medición, 
+    levels=c(
+      "Calidad del sueño",
+      "Dolor muscular",
+      "Estado de ánimo",
+      "Estress",
+      "Nivel de energía",
+      "Total Wellness",
+      "Nivel de percepción por el esfuerzo"
+      )
+    )
+## Visualization
+    ggplotly(
+      ggplot(df.P_g) +
+        geom_bar(aes(x = Medición,
+                     y = Promedio,
+                     fill = Medición), 
+                 stat = "identity", 
+                 color="black",
+                 size=.3,
+                 alpha = .7) +
+        geom_errorbar(aes(x = Medición,
+                          ymin = Promedio-Desviación, 
+                          ymax = Promedio+Desviación), 
+                      width = 0.5, 
+                      alpha = 0.9, 
+                      size = 1,
+                      colour = ifelse(df.P_g$Color_Line=="black",
+                                      "black","red")) +
+        labs(x=NULL, y=NULL, fill=NULL) +
+      scale_fill_brewer(palette = "Paired") +
+        theme(axis.text.x = element_text(angle = 45),
+              panel.grid.major.x = element_blank(),
+              panel.grid.major=element_line(colour="#00000018"),
+              panel.grid.minor=element_line(colour="#00000018"),
+              panel.background=element_rect(fill="transparent",colour=NA)),
+      tooltip = c("y","ymin","ymax")
+    ) %>%
+      layout(
+        hovermode = 'compare',
+        showlegend = FALSE
+      ) 
+
+
+```
+
+A su vez, la siguiente Tabla muestra el *Promedio* del Plantel asociado a todas las **Mediciones** de Autoreporte, con respecto al valor máximo registrado en cada una de ellas.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+## DF Final
+df.P_g_T <- 
+  df_PD %>% 
+  filter(
+    Dimensión %in% "Autoreporte",
+    TipoMedición %in% "Bienestar"
+  ) %>% 
+  group_by(Medición) %>% 
+  summarise(
+    Máximo = max(ValorMedición),
+    Mínimo = min(ValorMedición),
+    Promedio = mean(ValorMedición) %>% round(1),
+    Desviación = sd(ValorMedición) %>% round(1)
+    ) %>% 
+  as.data.frame() %>%
+  add_row(
+    Medición = "Total Wellness",
+    Máximo = max(Wellness),
+    Mínimo = min(Wellness),
+    Promedio = mean(Wellness) %>% round(1),
+    Desviación = sd(Wellness) %>% round(1),
+    .before = 6
+  ) %>%
+  mutate(
+    'Intervalo Confianza' = paste(Promedio-Desviación, "-", Promedio+Desviación)
+  ) 
+# Visualization
+kable(df.P_g_T,
+      align="c", digits=3, row.names=FALSE) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
+                font_size=17) 
+```
+
+### Estadística Semanal
+
+La siguiente Tabla muestra el detalle de las estadísticas de Promedio para la **Suma total** de valores de cada una de las diferentes *Mediciones* que componen los *Autoreportes* por Semana.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=7.4, fig.height=3}
+## Creating the DF
+ar.DF <- 
+  rbind(
+  df_PD %>%
+    filter(
+      Dimensión %in% "Autoreporte"
+    ) %>%
+    group_by(Medición,FechaDimensión) %>%
+    summarise(
+      Suma = mean(ValorMedición)
+    ) %>%
+    mutate("Semana" = lubridate::week(FechaDimensión) %>% as.factor()) %>%
+    group_by(Medición,Semana) %>%
+    summarise(
+      Promedio = mean(Suma) %>% round(1),
+      Desviación = sd(Suma) %>% round(1)
+    ) %>%
+    mutate(
+      'Intervalo Confianza' = paste("[", Promedio-Desviación, "-", Promedio+Desviación, "]"),
+      Zscore = (
+        (Promedio  - mean(Promedio )) / sd(Promedio )
+      ) %>% round(2)
+    ) %>% 
+    select(!c(Desviación,'Intervalo Confianza')) %>%
+    mutate(Color_Fill = 0, Color_Line = 0) %>%
+    slice(1:n()-1),
+  df_PD %>%
+    filter(
+      Dimensión %in% "Autoreporte",
+      TipoMedición %in% "Bienestar",
+      !Medición %in% "Nivel de percepción por el esfuerzo"
+    ) %>%
+    group_by(Medición,FechaDimensión) %>%
+    summarise(
+      Suma = mean(ValorMedición)
+    ) %>%
+    mutate("Semana" = lubridate::week(FechaDimensión) %>% as.factor()) %>%
+    group_by(Semana) %>%
+    summarise(
+      Promedio = mean(Suma) %>% round(1),
+      Desviación = sd(Suma) %>% round(1)
+    ) %>%
+    mutate(
+      Medición = "Total Wellness",
+      .before = "Semana"
+    ) %>%
+    mutate(
+      'Intervalo Confianza' = paste("[", Promedio-Desviación, "-", Promedio+Desviación, "]"),
+      Zscore = (
+        (Promedio  - mean(Promedio )) / sd(Promedio )
+      ) %>% round(2)
+    ) %>% 
+    select(!c(Desviación,'Intervalo Confianza')) %>%
+    mutate(Color_Fill = 0, Color_Line = 0) %>%
+    slice(1:n()-1) %>%
+    as.data.frame()
+) %>%
+  as.data.frame()
+## Loop for Colors
+# for (i in seq(1, nrow(ar.DF), by=1)) {
+#   ar.DF$Color_Line[i] = if (ar.DF$Promedio[i]>2*ar.DF$Desviación[i]) { "black" } else { "red" } 
+#   }
+## Sorting Levels
+ar.DF$Medición <- 
+  factor(
+    ar.DF$Medición, 
+    levels=c(
+      "Calidad del sueño",
+      "Dolor muscular",
+      "Estado de ánimo",
+      "Estress",
+      "Nivel de energía",
+      "Total Wellness",
+      "Nivel de percepción por el esfuerzo"
+      )
+    )
+## Visualization
+ggplotly(
+  ggplot(ar.DF, aes(x=Semana, fill=Medición)) +
+    geom_histogram(
+      aes(y = Promedio), 
+      position = position_dodge(width=0.8), 
+      stat = "identity",
+      alpha=.7, width=.7, 
+      color="black", size=.3
+      ) +
+    # geom_errorbar(
+    #   aes(x = Medición,
+    #       ymin = Promedio-Desviación, 
+    #       ymax = Promedio+Desviación), 
+    #   width = 0.5, 
+    #   alpha = 0.9, 
+    #   size = 1,
+    #   colour = ifelse(df.P_g$Color_Line=="black","black","red")) +
+    labs(x=NULL, y=NULL, fill=NULL) +
+    #scale_fill_brewer(palette = "Set1") +
+    scale_fill_brewer(palette = "Paired") +
+    #scale_color_gradientn(colours = rainbow(18)) +
+    theme(panel.grid.major.x = element_blank(),
+          panel.grid.major=element_line(colour="#00000018"),
+          panel.grid.minor=element_line(colour="#00000018"),
+          panel.background=element_rect(fill="transparent",colour=NA))
+) %>%
+  layout(
+    #hovermode = 'compare',
+    showlegend = FALSE
+  ) %>%
+  config(
+    displaylogo = FALSE,
+    modeBarButtonsToRemove = c("select2d", "zoomIn2d", 
+                               "zoomOut2d", "lasso2d", 
+                               "toggleSpikelines")
+  ) %>% toWebGL()
+```
+
+La siguiente Tabla muestra el detalle de las estadísticas tanto de Promedio como de Zscore para la **Suma total** de valores de cada una de las diferentes *Mediciones* que componen los *Autoreportes* por Semana.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# General DF
+DF_D <- 
+  rbind(
+  df_PD %>%
+    filter(
+      Dimensión %in% "Autoreporte"
+    ) %>%
+    group_by(Medición,FechaDimensión) %>%
+    summarise(
+      Suma = mean(ValorMedición)
+    ) %>%
+    mutate("Semana" = lubridate::week(FechaDimensión) %>% as.factor()) %>%
+    group_by(Medición,Semana) %>%
+    summarise(
+      Promedio = mean(Suma) %>% round(1),
+      Desviación = sd(Suma) %>% round(1)
+    ) %>%
+    mutate(
+      'Intervalo Confianza' = paste("[", Promedio-Desviación, "-", Promedio+Desviación, "]"),
+      Zscore = (
+        (Promedio  - mean(Promedio )) / sd(Promedio )
+      ) %>% round(2)
+    ) %>% 
+    select(!c(Desviación,'Intervalo Confianza')) %>%
+    slice(1:n()-1),
+  df_PD %>%
+    filter(
+      Dimensión %in% "Autoreporte",
+      TipoMedición %in% "Bienestar",
+      !Medición %in% "Nivel de percepción por el esfuerzo"
+    ) %>%
+    group_by(Medición,FechaDimensión) %>%
+    summarise(
+      Suma = mean(ValorMedición)
+    ) %>%
+    mutate("Semana" = lubridate::week(FechaDimensión) %>% as.factor()) %>%
+    group_by(Semana) %>%
+    summarise(
+      Promedio = mean(Suma) %>% round(1),
+      Desviación = sd(Suma) %>% round(1)
+    ) %>%
+    mutate(
+      Medición = "Total Wellness",
+      .before = "Semana"
+    ) %>%
+    mutate(
+      'Intervalo Confianza' = paste("[", Promedio-Desviación, "-", Promedio+Desviación, "]"),
+      Zscore = (
+        (Promedio  - mean(Promedio )) / sd(Promedio )
+      ) %>% round(2)
+    ) %>% 
+    select(!c(Medición,Desviación,'Intervalo Confianza')) %>%
+    slice(1:n()-1) %>%
+    as.data.frame()
+) %>%
+  as.data.frame()
+# Week difference
+week <- DF_D$Semana %>% as.integer()
+n <- max(week) - min(week)
+# Visualization
+kable(DF_D[,-1], align="c", digits=3, row.names=FALSE) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
+                font_size=17, fixed_thead = TRUE, full_width = TRUE) %>%
+  pack_rows("Calidad del sueño", 1, 1+n) %>%
+  pack_rows("Dolor muscular", 1+n+1, 1+n+1+n) %>%
+  pack_rows("Estado de ánimo", 1+n+1+n+1, 1+n+1+n+1+n) %>%
+  pack_rows("Estress", 1+n+1+n+1+n+1, 1+n+1+n+1+n+1+n) %>%
+  pack_rows("Nivel de energía", 1+n+1+n+1+n+1+n+1, 1+n+1+n+1+n+1+n+1+n) %>%
+  pack_rows("Total Wellness", 1+n+1+n+1+n+1+n+1+n+1, 1+n+1+n+1+n+1+n+1+n+1+n)%>%
+  pack_rows("Nivel de percepción por el esfuerzo", 1+n+1+n+1+n+1+n+1+n+1+n+1, 1+n+1+n+1+n+1+n+1+n+1+n+1+n) %>%
+  scroll_box(width="100%", height="300px") 
+```
+
+### Carga Interna
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+df.tab5.0_PD <- 
+    full_join(
+      full_join(
+        df_PD %>%
+          filter(
+            Dimensión %in% "Autoreporte",
+            Medición %in% "Nivel de percepción por el esfuerzo" 
+          ) %>%
+          group_by(Jugador,FechaDimensión) %>%
+          summarise(
+            Esfuerzo = sum(ValorMedición)
+          ) %>%
+          as.data.frame() ,
+        df_PD %>%
+          filter(
+            Medición %in% "Total Duration" 
+          ) %>%
+          group_by(Jugador,FechaDimensión) %>%
+          summarise(
+            Minutos = sum(ValorMedición)
+          ) %>%
+          as.data.frame(),
+        by = c('Jugador','FechaDimensión')
+      ),
+      df_PD %>%
+        filter(
+          Dimensión %in% "Autoreporte",
+          !Medición %in% "Nivel de percepción por el esfuerzo" 
+        ) %>%
+        group_by(Jugador,FechaDimensión) %>%
+        summarise(
+          TotalWellness = sum(ValorMedición)
+        ) %>%
+        as.data.frame(),
+      by = c('Jugador','FechaDimensión')
+    ) %>% 
+      mutate(
+        CargaInterna = Minutos * Esfuerzo
+      ) %>%
+      select(-c("Esfuerzo","Minutos")) %>%
+      drop_na() %>%
+      arrange(FechaDimensión) %>%
+  group_by(FechaDimensión) %>%
+  summarise(
+    TotalWellness = mean(TotalWellness) %>% round(1),
+    CargaInterna = mean(CargaInterna) %>% round(0)
+  )
+```
+
+La siguiente Gráfica muestra el Promedio general del Plantel tanto respecto del **Total Wellness** (suma total de todos los valores de Autoreporte con *excepción* de la Percepción del Esfuerzo) como de la **Carga Interna** (la multiplicación de los *Minutos de Exposición* por la Medida de *Percepción del Esfuerzo*) del Jugador.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=7.4, fig.height=3}
+filtered <- df.tab5.0_PD
+# Visualization
+plot_ly() %>%
+  add_trace(
+    type='bar',
+    x=filtered$FechaDimensión %>% as.character(),
+    y=filtered$TotalWellness,
+    color = I("#2089E0E2"),
+    name = 'Total Wellness'
+  ) %>%
+  add_trace(
+    type='scatter',
+    x=filtered$FechaDimensión %>% as.character(),
+    y=filtered$CargaInterna,
+    color = I("#EB1C15"),
+    marker = list(
+      size = 8
+    ),
+    line = list(
+      width = 4
+    ),
+    yaxis = "y2",
+    name = "Carga Interna"
+  ) %>%
+  layout(
+    hovermode = 'compare',
+    legend = list(
+      y = 1.02,
+      x = 1
+    ),
+    xaxis= list(showticklabels = FALSE),
+    yaxis2 = list(
+      overlaying = "y",
+      side = "right"
+    )
+  ) %>%
+  config(
+    displaylogo = FALSE,
+    modeBarButtonsToRemove = c("select2d", "zoomIn2d",
+                               "zoomOut2d", "lasso2d",
+                               "toggleSpikelines")
+  ) %>% toWebGL()
+```
+
+La siguiente Tabla muestra el Promedio general del Plantel tanto respecto del **Total Wellness** (suma total de todos los valores de Autoreporte con *excepción* de la Percepción del Esfuerzo) como de la **Carga Interna** (la multiplicación de los *Minutos de Exposición* por la Medida de *Percepción del Esfuerzo*) del Jugador.. Además, en cada caso se muestra en paréntesis el valor asociado de **Zscore** para el registro.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+kable(
+  df.tab5.0_PD %>%
+    mutate(
+      Zscore_Wellness = ( 
+        (TotalWellness - mean(TotalWellness)) / sd(TotalWellness) 
+      ) %>% round(2),
+      Zscore_Carga = ( 
+        (CargaInterna - mean(CargaInterna)) / sd(CargaInterna) 
+      ) %>% round(2)
+    ) %>%
+    mutate(
+      "TotalWellness (Zscore)" = paste(TotalWellness," (",Zscore_Wellness,")", sep = ""),
+      "CargaInterna (Zscore)" = paste(CargaInterna," (",Zscore_Carga,")", sep = "")
+    ) %>%
+    select(
+      "Fecha Mediciones" = FechaDimensión,
+      "Total Wellness (Zscore)" = "TotalWellness (Zscore)",
+      "Carga Interna (Zscore)" = "CargaInterna (Zscore)"
+    ),
+  align="c", digits=3, row.names=FALSE) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
+                font_size=17) %>% 
+  scroll_box(width="100%", height="280px") 
+
+```
+
+## Time Loss
+
+### Resumen
+
+Las siguientes Tarjetas presentan la *Cantidad Total* de **Días Perdidos** del Plantel, así como también el Índice de **Injury Burden**.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE,  results="hide", fig.width=7.4, fig.height=1.4}
+# Value 1
+value_1 <- 
+  df_TL$TimeLoss %>%
+  sum()
+# Value 2
+value_2 <- 
+  ((((df_TL$TimeLoss %>%
+        sum()
+  ) / df_PD %>% 
+    filter(
+      Medición %in% "Total Duration"
+    ) %>%
+    select(ValorMedición) %>% sum()
+  ) * 1000)) %>% round(2)
+
+# Defining the DF
+df <- 
+  data.frame(
+    values=c(value_1,value_2), 
+    infos=c("Total Time Loss", "Injury Burden"), 
+    icons=c("fa-hourglass", "fa-history")
+    )
+# Visualization
+createValueBoxes_G(df, rows=1)
+
+```
+
+### Según Severidad
+
+La siguiente Gráfica de Torta muestra la *Proporción de Cantidad* de **Días Perdidos** de Entrenamiento según tipo de **Severidad** y asociado a valores de Categoría de **Lesión** y **Enfermedad**.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=7.4, fig.height=4.5}
+# Creating Cross Tab DF
+df_TL_Graph_1 <- 
+  df_TL %>% 
+  filter(Categoría_I %in% "Lesión") %>%
+  select(Severidad) %>% 
+  table() %>% 
+  as.data.frame() %>% 
+  rename("Severidad"='.',"TimeLoss"=Freq)
+df_TL_Graph_2 <- 
+  df_TL %>% 
+  filter(Categoría_I %in% "Enfermedad") %>%
+  select(Severidad) %>% 
+  table() %>% 
+  as.data.frame() %>% 
+  rename("Severidad"='.',"TimeLoss"=Freq)
+# Visualization
+subplot(
+  plot_ly(
+    df_TL_Graph_1, 
+    labels = ~Severidad, 
+    values = ~TimeLoss, 
+    type = 'pie',
+    opacity=.87,
+    domain = list(x = c(0, 0.45)),
+    textposition = 'inside',
+    textinfo = 'label+percent',
+    insidetextfont = list(color = '#FFFFFF'),
+    hoverinfo = 'text',
+    text = ~paste(
+      Severidad, "/", 
+      round((TimeLoss/sum(df_TL_Graph_1$TimeLoss))*100,1), "%", 
+      " del Total con ", TimeLoss, ifelse(TimeLoss == 1, ' Registro', ' Registros')
+      ),
+    textfont = list(color = '#000000', size = 13),
+    marker = list(line = list(color = '#FFFFFF', width = 6)),
+    showlegend = FALSE),
+  plot_ly(
+    df_TL_Graph_2, 
+    labels = ~Severidad, 
+    values = ~TimeLoss, 
+    type = 'pie',
+    opacity=.87,
+    domain = list(x = c(0.55, 1)),
+    textposition = 'inside',
+    textinfo = 'label+percent',
+    insidetextfont = list(color = '#FFFFFF'),
+    hoverinfo = 'text',
+    text = ~paste(
+      Severidad, "/", 
+      round((TimeLoss/sum(df_TL_Graph_2$TimeLoss))*100,1), "%", 
+      " del Total con ", TimeLoss, ifelse(TimeLoss == 1, ' Registro', ' Registros')
+      ),    
+    textfont = list(color = '#000000', size = 13),
+    marker = list(line = list(color = '#FFFFFF', width = 6)),
+    showlegend = FALSE) 
+) %>% 
+  layout(
+    title = "Lesión                                            Enfermedad",
+    xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+    yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE)
+  ) %>% 
+  config(
+    displaylogo = FALSE,
+    modeBarButtonsToRemove = c("select2d", "zoomIn2d", 
+                               "zoomOut2d", "lasso2d", 
+                               "toggleSpikelines")
+  ) %>% toWebGL()
+```
+
+Finalmente, esta Tabla presenta nuevamente la *Cantidad* de **Días Perdidos** de Entrenamiento según tipo de **Severidad** y asociado a valores de Categoría.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# Visualization
+kable(df_TL %>% 
+        select(-c(Disponibilidad,Categoría)) %>% 
+        rename(Categoría = Categoría_I,
+               "Fecha Inicio" = FechaInicio_TimeLoss,
+               "Fecha Término" = FechaTérmino_TimeLoss),
+      align="c", digits=3, row.names=FALSE) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
+                font_size=17) %>% 
+  scroll_box(width="100%", height="280px")
+```
+
+<br>
